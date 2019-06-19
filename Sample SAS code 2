@@ -1,33 +1,34 @@
 **********************************************************;
 * Program name		:Macro for sample size computation for Simon two-Stage Phase 2 Clinical Trial Design
 *
-* Author			:Xue Jia
+* Author		:Xue Jia
 *
 * Date created		:2018-01-20
 *
 *
-* Purpose			:To compute sample size for Simon two-Stage Phase 2 Clinical Trial Design.
+* Purpose		:To compute sample size for Simon two-Stage Phase 2 Clinical Trial Design.
 *
-* Inputs			:Parameters for the design
+* Inputs		:Parameters for the design
 *
-* Outputs			:Information related to sample size
+* Outputs		:Information related to sample size
 *
 * Program completed	: Yes
 *
-* Version			:V1
+* Version		:V1
 * Updated by 		: (Name) ¨C (Date):
 * 					 (Modification and Reason)
 **********************************************************
 Programmed using SAS version 9.4
 **********************************************************;
 *Note
-1.The key parameters
+1.About simon 2-stage design, please refer to https://linus.nci.nih.gov/techreport/Optimal2-StageDesigns.pdf
+2.The key parameters
   &p0 : An unacceptable response rate.
   &p1 : The target response rate.
   &alpha : The probability of declaring the drug effective when the true response probability is p0.
   &beta : The probability of declaring the drug as not effective when its true response probability is the target response rate p1.
   &usern : User-specified maximum sample size, cannot exceed 120.
-2.The 'Optimal' design satisfies the error probability constraints and minimizes the expected sample size (EN) when the response
+3.The 'Optimal' design satisfies the error probability constraints and minimizes the expected sample size (EN) when the response
 probability is p0, while the 'Minimax' design minimize the maximum sample size (n) subject to the error probability constraints.;
   
 
