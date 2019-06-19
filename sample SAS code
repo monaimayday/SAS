@@ -1,0 +1,227 @@
+**********************************************************;
+* Program name		:Macro for sample size computation for time-to-event endpoint
+*
+* Author	        :Xue Jia
+*
+* Date created		:2017-10-08
+*
+* Purpose			:To compute sample size for clinical trials with time to event endpoint.
+*
+* Inputs			:Parameters for the design
+*
+* Outputs			:Information related to sample size
+*
+* Program completed	: Yes
+*
+* Version			:V4.1
+* Updated by 		:Xue 20171109
+* 					 Modify the program based on the SAS 9.4.
+**********************************************************
+Programmed using SAS version 9.4
+**********************************************************;
+
+*Note
+1.errmethod: define type I error control method used in interim analysis. Substitute obf, pow or tri etc. for errfuncobf'.
+2.nstage means the total number of stages to perform analysis and 'infocum' means the cumulative information proportion for each stage of analysis.
+3.stop option sets the objective of the interim analysis, with the choice of 'reject','accept'and 'both'
+4.H1 represents the way of hypothesis to be tested, with the choice of 'upper','lower',and 'twosided'
+5.alpha,beta,nullmed,meds,accrate,totaltime and ranratio mean type I error, type II error, median survival of control arm, median survival of treatment arm, accrual rate, duration of the trial and the allocation ratio(treatment vs control), respectively.
+6.You can use loops for alpha, beta, meds, accrate and totaltime, in the format of, for example, alpha=0.05 0.1 0.01, which means alpha starts from 0.05 to 0.1 by increment of 0.01.
+7.There are two methods to deal with the dropouts. One is not to consider the dropouts within the SAS procedure but setting the dropout= option and another is to consider dropouts within the SAS
+ procudure by setting dropout=0 and loss=exp(hazard= ),accrual= canbe uniform or EXP(PARM=)
+
+%macro survsamplesize2 (errmethod,nstage,infocum,stop,H1,alpha, beta, nullmed, meds, stopprob,time1, time2, ranratio,accrual, loss);
+
+*Initialize the datasets to be used;
+data sam samsize sample sample1 sample2 sample3 bound3 bound4 bound5; 
+run;
+/*Set up the loop function for alpha, beta, accrual rate, total time and alternative reference*/
+%local alp bet tim1 tim2 surv;
+%let time_1=%scan(&time1,1,=);
+%let time_1v=%scan(&time1,2,=);
+%let time_2=%scan(&time2,1,=);
+%let time_2v=%scan(&time2,2,=);
+
+%let survst=%scan(&meds,1,%str( ));
+%let alpst=%scan(&alpha,1,%str( ));
+%let betst=%scan(&beta,1,%str( ));
+%let tim1st=%scan(&time_1v,1,%str( ));
+%let tim2st=%scan(&time_2v,1,%str( ));
+
+
+%if %scan(&alpha,2,%str( ))=%str( )  %then 
+%do;
+	%let alphaend=&alpha;
+	%let alphaby=0.01; 
+%end;
+%else %do;
+	%let alphaend=%scan(&alpha,2,%str( )); 
+	%let alphaby=%scan(&alpha,3,%str( ));
+%end;
+%if %scan(&beta,2,%str( ))=%str( )  %then 
+%do;
+	%let betaend=&beta; 
+	%let betaby=0.01;
+%end; 
+%else %do;
+	%let betaend=%scan(&beta,2,%str( )); 
+	%let betaby=%scan(&beta,3,%str( )); 
+%end;
+%if %scan(&meds,2,%str( ))=%str( )  %then
+%do; 
+	%let medsend=&meds; 
+	%let medsby=1;
+%end; 
+%else %do;
+	%let medsend=%scan(&meds,2,%str( )); 
+	%let medsby=%scan(&meds,3,%str( )); 
+%end;
+%if %scan(&time_1v,2,%str( ))=%str( )  %then 
+%do; 
+	%let tim1end=&time_1v;
+	%let tim1by=1; 
+%end; 
+%else %do;
+	%let tim1end=%scan(&time_1v,2,%str( ));
+	%let tim1by=%scan(&time_1v,3,%str( )); 
+%end;
+%if %scan(&time_2v,2,%str( ))=%str( )  %then 
+%do; 
+	%let tim2end=&time_2v; 
+	%let tim2by=1; 
+%end;  
+%else %do;
+	%let tim2end=%scan(&time_2v,2,%str( )); 
+	%let tim2by=%scan(&time_2v,3,%str( )); 
+%end;
+
+%do alp=%sysevalf(&alpst*10000) %to %sysevalf(&alphaend*10000) %by %sysevalf(&alphaby*10000);
+	%do bet=%sysevalf(&betst*10000) %to %sysevalf(&betaend*10000) %by %sysevalf(&betaby*10000);
+		%do tim1=%sysevalf(&tim1st*10000) %to %sysevalf(&tim1end*10000) %by %sysevalf(&tim1by*10000);
+			%do tim2=%sysevalf(&tim2st*10000) %to %sysevalf(&tim2end*10000) %by %sysevalf(&tim2by*10000);
+				%do surv=%sysevalf(&survst*10000) %to %sysevalf(&medsend*10000) %by %sysevalf(&medsby*10000);
+
+				 %let i=1;
+					%do %until(%scan(&stopprob,&i+1,%str( )=)=%str( ));
+						%let HR&i=%scan(&stopprob,&i+1,%str( )=);
+						%if %upcase(%scan(&stopprob,1,=))=HR %then	%do;
+						%let cHR&i=%sysevalf(%sysfunc(log(&&HR&i))/%sysfunc(log(&nullmed/(&surv/10000))));%end;%else %do;
+						%let cHR&i=%sysevalf(%sysfunc(log(&nullmed/&&HR&i))/%sysfunc(log(&nullmed/(&surv/10000))));%end;
+						%let i=%sysevalf(&i+1);
+					%end;
+					%let j=1;
+					%let cref=%str( );
+					%do %until(&j=&i);
+						%let cref=&cref &&cHR&j;
+						%let j=%sysevalf(&j+1);
+					%end;
+
+					/*The seqdesign procedures for sample size computation*/
+					proc seqdesign errspend stopprob(cref=&cref) pss(cref=&cref) plots=errspend BOUNDARYSCALE=STDZ;
+   						TwoSampleSurv: design nstages=&nstage 
+                       	info=cum&infocum
+					  	alpha=%sysevalf(&alp/10000)
+                     	beta=%sysevalf(&bet/10000)
+					 	stop=&stop
+						alt=&H1
+						method=&errmethod                     	;
+                  	samplesize model=twosamplesurv(nullmedsurvtime=&nullmed weight=&ranratio medsurvtime=%sysevalf(&surv/10000) 
+								&time_1=%sysevalf(&tim1/10000)  &time_2=%sysevalf(&tim2/10000) accrual=&accrual Loss=&Loss);
+
+					/*Output the sample size into a dataset*/	
+       					ods output 'Sample Size Summary'=bound3 ;
+       					ods output 'Boundary Information'=bound4 ;
+						ods output 'Sample Size Summary'=samsum;
+					run;
+
+					/*Add the parameters used*/	
+					data sample1(drop=label1 cvalue1 _Design_);
+						nstage=&nstage;
+						infor="&infocum";
+						alpha=&alp/10000;
+						beta=&bet/10000;
+						&time_1=&tim1/10000;
+						&time_2=&tim2/10000;
+						nullmed=&nullmed;
+						medsurvtime=&surv/10000;
+						Ranratio="&ranratio";
+						set bound3;
+						if label1="Max Sample Size";
+						*SamSize2=nvalue1/(1-&droprate);
+						rename nvalue1=samsize;
+					run;
+					/*Output the events into a dataset*/
+					data sample2(drop=label1 cvalue1 _Design_);
+  						set bound3;
+   						if label1="Max Number of Events";
+						rename nvalue1=maxevents;
+					run;
+
+					/*Output the HR into a dataset*/
+					data sample3(drop=label1 cvalue1 _Design_);
+						set bound3;
+						rename nvalue1=HR;
+						if label1="Hazard Ratio";
+					run;
+
+					/*Merge the HR, sample size and events into a single dataset*/
+					data sample;
+						merge sample1 sample2 sample3;
+					run;
+
+					/*Accumulate the data from each loop*/
+					data sam;
+						set sam sample;
+					run;                                                                                  
+
+					data bound5;
+						set bound5 bound4;
+					run;
+					/*Initialize the datasets*/
+					data sample sample1 sample2 sample3 bound3 bound4;
+					run;
+				%end;
+			%end;
+		%end;
+	%end;
+%end;
+
+/*Delete the first observation which has no data*/
+data samsize;
+	set sam;
+	if HR ~= '';
+run;
+
+/*proc gplot data= samsize;
+	plot maxsamsize* medsurvtime; by nstage beta alpha ;
+	symbol i=join v=star
+	pointlabel c=red w=5;
+run;*/
+
+proc print data=samsize label;
+	label samsize="Sample Size";
+run;
+
+/*Compute the p-values of boudaries that are in standized normal Z scale*/
+data bound5;
+	set bound5;
+	L_Alpha=cdf('normal',bound_la);
+	L_Beta=cdf('normal',bound_lb);
+	U_Beta=cdf('normal',bound_ub);
+	U_Alpha=cdf('normal',bound_ua);
+	if _Design_~='';
+run;
+
+proc print data=bound5 label;
+	footnote "Generated on &sysdate" ;
+run;
+
+/*Delete the interim datasets*/
+proc delete data=sample sample1 sample2 sample3 bound3 bound4;
+run;
+%mend survsamplesize2;
+
+/*example*/
+%survsamplesize2(errmethod=ERRFUNCOBF, nstage=2,infocum=(0.67 1),stop=reject,H1=twosided, alpha=0.05, beta=0.1, 
+nullmed=6, meds=9, stopprob=%str(HR=0.75 0.67),time1=%str(accrate=30), time2=%str(foltime=12),
+ranratio=2, accrual=uniform,loss=exp(hazard=0.05));
