@@ -1,21 +1,21 @@
 **********************************************************;
 * Program name		:Macro for sample size computation for time-to-event endpoint
 *
-* Author	        :Xue Jia
+* Author	        :Xue Jia, Yuansheng Huang
 *
 * Date created		:2017-10-08
 *
-* Purpose			:To compute sample size for clinical trials with time to event endpoint.
+* Purpose		:To compute sample size for clinical trials with time to event endpoint.
 *
-* Inputs			:Parameters for the design
+* Inputs		:Parameters for the design
 *
-* Outputs			:Information related to sample size
+* Outputs		:Information related to sample size
 *
 * Program completed	: Yes
 *
-* Version			:V4.1
-* Updated by 		:Xue 20171109
-* 					 Modify the program based on the SAS 9.4.
+* Version		:V4.1
+* Updated by 		:Xue Jia 20171109
+* 			 Modify the program based on the SAS 9.4.
 **********************************************************
 Programmed using SAS version 9.4
 **********************************************************;
